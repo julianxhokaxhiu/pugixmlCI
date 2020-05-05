@@ -29,11 +29,7 @@ environment:
 install:
   - git clone --recursive https://github.com/zeux/pugixml.git
   - cd pugixml
-  - ps: |
-      $file = 'CMakeLists.txt'
-      $replaceWhat = 'project(pugixml VERSION 1.10 LANGUAGES CXX)'
-      $replaceWith = "cmake_policy(SET CMP0091 NEW)`nproject(pugixml VERSION 1.10 LANGUAGES CXX)"
-      (Get-Content $file).Replace($replaceWhat,$replaceWith) | Set-Content $file
+  - git apply ../CMakeLists.patch
 
 # Prepare Cpp environment
 before_build:

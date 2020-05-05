@@ -1,0 +1,20 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a0254d8..e443530 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,4 +1,5 @@
+ cmake_minimum_required(VERSION 3.4)
++cmake_policy(SET CMP0091 NEW)
+ project(pugixml VERSION 1.10 LANGUAGES CXX)
+ 
+ include(CMakePackageConfigHelpers)
+@@ -100,9 +101,6 @@ if (NOT BUILD_SHARED_LIBS OR BUILD_SHARED_AND_STATIC_LIBS)
+   target_include_directories(pugixml-static
+     PUBLIC
+       $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>)
+-  target_compile_definitions(pugixml-static
+-    PRIVATE
+-      $<$<CXX_COMPILER_ID:MSVC>:PUGIXML_API=__declspec\(dllexport\)>)
+   target_compile_options(pugixml-static
+     PRIVATE
+       ${msvc-rt-mtd-shared}
