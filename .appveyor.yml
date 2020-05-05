@@ -1,0 +1,95 @@
+# .appveyor.yml
+
+# Build version
+version: '1.10.{build}'
+
+# Use the latest available toolchain
+image: Visual Studio 2019
+
+# fetch repository as zip archive
+shallow_clone: true
+
+# PRs do not increment the build number
+pull_requests:
+  do_not_increment_build_number: true
+
+# Build configurations
+configuration: Release
+
+# Default environment variables
+environment:
+  _IS_BUILD_CANARY: false
+  _RELEASE_NAME: pugixml
+  _MSVC_RUNTIME: MultiThreaded
+  # Use Python 3.x
+  PYTHON: "C:\\Python38-x64"
+  PYTHON_VERSION: "3.8.x"
+  PYTHON_ARCH: "64"
+
+install:
+  - git clone --recursive https://github.com/zeux/pugixml.git
+  - cd pugixml
+  - ps: |
+      $file = 'CMakeLists.txt'
+      $replaceWhat = 'project(pugixml VERSION 1.10 LANGUAGES CXX)'
+      $replaceWith = "cmake_policy(SET CMP0091 NEW)`nproject(pugixml VERSION 1.10 LANGUAGES CXX)"
+      (Get-Content $file).Replace($replaceWhat,$replaceWith) | Set-Content $file
+
+# Prepare Cpp environment
+before_build:
+  - cmd: |
+      set PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%
+  - ps: |
+      if ($env:APPVEYOR_REPO_TAG -eq "true" -and $env:APPVEYOR_REPO_TAG_NAME) {
+        $env:APPVEYOR_BUILD_VERSION = $env:APPVEYOR_BUILD_VERSION.Substring(0,$env:APPVEYOR_BUILD_VERSION.LastIndexOf('.')) + ".0"
+        $env:_RELEASE_NAME = $env:_RELEASE_NAME + "-v" + $env:APPVEYOR_BUILD_VERSION
+      } else {
+        $env:_RELEASE_NAME = $env:_RELEASE_NAME + "-Canary"
+        $env:APPVEYOR_REPO_TAG_NAME = "canary"
+        $env:_IS_BUILD_CANARY = "true"
+      }
+
+build_script:
+  - cmd: |
+      cmake -G "Visual Studio 16 2019" -A Win32 -DCMAKE_MSVC_RUNTIME_LIBRARY="%_MSVC_RUNTIME%" -S . -B .dist
+      cmake --build .dist --config %CONFIGURATION%
+
+after_build:
+  - cmd: |
+      md .install\lib
+      md .install\include
+      mv .dist/%CONFIGURATION%/pugixml.lib .install/lib/
+      mv src/pugixml.hpp .install/include/
+      mv src/pugiconfig.hpp .install/include/
+
+# Do not run unit tests
+test: off
+
+# Package artifacts
+artifacts:
+  - path: pugixml\.install
+    name: ${_RELEASE_NAME}_${CONFIGURATION}
+    type: zip
+
+# Create a GitHub release for every tag
+deploy:
+  # Deploy only when new tags are pushed
+  - provider: GitHub
+    tag: ${appveyor_repo_tag_name}
+    release: ${_RELEASE_NAME}
+    artifact: ${_RELEASE_NAME}_${CONFIGURATION}
+    auth_token: ${_GH_DEPLOYMENT_TOKEN}
+    on:
+      _IS_BUILD_CANARY: false
+  # Deploy on each commit
+  - provider: GitHub
+    tag: ${appveyor_repo_tag_name}
+    release: ${_RELEASE_NAME} v${appveyor_build_version}
+    artifact: ${_RELEASE_NAME}_${CONFIGURATION}
+    prerelease: true
+    force_update: true
+    auth_token: ${_GH_DEPLOYMENT_TOKEN}
+    on:
+      _IS_BUILD_CANARY: true
+    description: |
+      This is a canary build. Please be aware it may be prone to crashing and is NOT tested by anyone. Use this build AT YOUR OWN RISK!
